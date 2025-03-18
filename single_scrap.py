@@ -4,17 +4,17 @@ import re
 import random
 
 proxies_list = [  "http://vps_ua_amz2025:unqNhf25k8@46.3.208.139:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@46.3.208.139:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@46.3.160.78:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@46.3.160.78:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@149.126.228.245:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@149.126.228.245:50100", 
-    "http://vps_ua_amz2025:unqNhf25k8@94.131.48.12:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@94.131.48.12:50100", 
-    "http://vps_ua_amz2025:unqNhf25k8@95.164.207.220:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@95.164.207.220:50100",  
-    "http://vps_ua_amz2025:unqNhf25k8@193.41.68.81:50100",
-    "http://vps_ua_amz2025:unqNhf25k8@193.41.68.81:50100"]
+                    "http://vps_ua_amz2025:unqNhf25k8@46.3.208.139:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@46.3.160.78:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@46.3.160.78:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@149.126.228.245:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@149.126.228.245:50100", 
+                    "http://vps_ua_amz2025:unqNhf25k8@94.131.48.12:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@94.131.48.12:50100", 
+                    "http://vps_ua_amz2025:unqNhf25k8@95.164.207.220:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@95.164.207.220:50100",  
+                    "http://vps_ua_amz2025:unqNhf25k8@193.41.68.81:50100",
+                    "http://vps_ua_amz2025:unqNhf25k8@193.41.68.81:50100"]
 
 
 def get_random_proxie():
