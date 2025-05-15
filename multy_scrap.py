@@ -8,13 +8,13 @@ def scrap_webstore_multy(df: pd.DataFrame, url_column: str = "url") -> pd.DataFr
     for _, row in df.iterrows():
         url = row[url_column]
         if pd.notna(url):  
-            stock, price = scrap_webstore_single(url)
-            results.append([url, stock, price])
+            stock, price, remove_flag = scrap_webstore_single(url)
+            results.append([url, stock, price, remove_flag])
         else:
             results.append([url, "Invalid URL", None])
     
     # Create DataFrame with URLs, Stock, and Price
-    results_df = pd.DataFrame(results, columns=['url', 'Stock', 'Price'])
+    results_df = pd.DataFrame(results, columns=['url', 'Stock', 'Price', 'Remove'])
     
     return results_df
 
