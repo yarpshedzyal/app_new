@@ -16,8 +16,8 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from multy_scrap import scrap_webstore_multy          # your existing batch scraper
-from single_scrap import scrap_webstore_single        # still used inside multy
+from multy_scrap import scrap_webstore_multy          
+from single_scrap import scrap_webstore_single        
 # ──────────────────────────────────────────────────────────────
 GET_PRICES, UPDATE = "GET_PRICES", "UPDATE"
 DAILY_CSV_PATH     = "daily_prices.csv"
@@ -50,7 +50,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         mtime = dt.datetime.fromtimestamp(os.path.getmtime(DAILY_CSV_PATH), NY_TZ)
         await q.message.reply_document(open(DAILY_CSV_PATH, "rb"))
         await q.message.reply_text(
-            f"Last generated at: {mtime:%Y-%m-%d %H:%M} Kyiv time"
+            f"Last generated at: {mtime:%Y-%m-%d %H:%M} NY time"
         )
     elif q.data == UPDATE:
         await q.message.reply_text("Great! Please send me a CSV file containing links.")
@@ -89,33 +89,49 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 # ──────────────────────────────────────────────────────────────
 async def daily_prices_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     if not os.path.exists(MASTER_LINKS_PATH):
-        context.application.logger.warning("No master_links.csv yet — skipping daily run.")
+        print("⚠️ No master_links.csv yet — skipping daily run.")
         return
+
     df_links = pd.read_csv(MASTER_LINKS_PATH)
     df_links.columns = df_links.columns.str.strip().str.lower()
-    if "links" not in df_links.columns:
-        context.application.logger.warning("master_links.csv lacks 'links' column.")
+
+    if not {"sku", "links"}.issubset(df_links.columns):
+        print("⚠️ master_links.csv must contain 'sku' and 'links' columns.")
         return
+
+    # Rename and extract the 'url' column for scraping
     links_df = df_links.rename(columns={"links": "url"})[["url"]]
+
+    # Perform scraping
     results = await asyncio.to_thread(scrap_webstore_multy, links_df)
+
+    # Add SKU back to the front of the results
+    results.insert(0, "sku", df_links["sku"])
+
+    # Save to CSV
     results.to_csv(DAILY_CSV_PATH, index=False)
     print("✅ Daily prices file refreshed.")
+
 # ──────────────────────────────────────────────────────────────
 def main() -> None:
-    application = ApplicationBuilder().token(read_token(TOKEN_FILE)).build()
+    async def post_init(app):
+        app.job_queue.run_daily(daily_prices_job, RUN_AT)
+        print("🕗 Daily job scheduled.")
 
-    # Add handlers
+    application = (
+        ApplicationBuilder()
+        .token(read_token(TOKEN_FILE))
+        .post_init(post_init)  # ✅ Register post-init properly here
+        .build()
+    )
+
+    # Register handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(buttons))
     application.add_handler(MessageHandler(filters.Document.MimeType("text/csv"), handle_document))
 
-    # Schedule job after application is initialized
-    async def post_init(app):
-        app.job_queue.run_daily(daily_prices_job, RUN_AT)
-
-    application.post_init = post_init  # Register post-initialization callback
-
     application.run_polling()
+
 # ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()
