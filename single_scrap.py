@@ -75,6 +75,7 @@ def scrap_webstore_single(url:str, max_attempts=5):
             buybox_new_14_05_2024 = soup.select_one('#priceBox > div.pricing > div.plus-member.plus-member-override.plus-member--plus > div > div.plus-member__text.plus-member__price > p > span')
             bug_01_06_2024 = soup.select_one('#priceBox > div.pricing > table > tbody > tr > td')
             buybox_member_price_plus_05_15_25 = soup.select_one('#priceBox > div.pricing.relative.z-0 > div > div.plus-member.plus-member-override.plus-member--plus > div > div.plus-member__price.plus-member__price--plus-member.flex.justify-center.flex-col > p > span')
+            regular_plus_member_price_el = soup.select_one('#priceBox > div.pricing.relative.z-0 > div > div.plus-member.plus-member-override.plus-member--plus > div > div.plus-member__text.plus-member__price')
 
             if svg_element or (phrase_unavailable in soup.get_text()) or (phrase_out_of_stock in soup.get_text()) or (phrase_unavailable_2 in soup.get_text()):
                 stock_inner = "Out"
@@ -143,6 +144,11 @@ def scrap_webstore_single(url:str, max_attempts=5):
                 filtered_price = re.sub(r'[^\d.]', '', price_inner)
                 price_inner = clean_price_string(filtered_price)
 
+            if regular_plus_member_price_el:
+                price_inner = regular_plus_member_price_el.text.strip().replace('$', '').replace(',', '')
+                filtered_price = re.sub(r'[^\d.]', '', price_inner)
+                price_inner = clean_price_string(filtered_price)   
+
             if minimum_buy:
                 price_inner = str(float(price_inner) * minimum_buy)
             if 'search' in url:
@@ -172,3 +178,4 @@ def scrap_webstore_single(url:str, max_attempts=5):
 # print(scrap_webstore_single('https://www.webstaurantstore.com/metro-super-erecta-30-x-72-x-80-gray-mobile-shelving-unit-kit/4613072NK4M75.html')) #test_out_of_stock
 # print(scrap_webstore_single('https://www.webstaurantstore.com/lavex-49-1-4-x-41-1-4-x-4-heavy-duty-gaylord-lid-bundle/442GLTW492541254LID.html')) #test_many_buy
 # print(scrap_webstore_single('https://www.webstaurantstore.com/lancaster-table-seating-18-x-60-granite-white-heavy-duty-blow-molded-plastic-folding-table/384YCZ1860.html')) #test_table_element
+# print(scrap_webstore_single('https://www.webstaurantstore.com/avantco-a-19f-hc-29-solid-door-reach-in-freezer/178A19FHC.html')) #test_table_element
