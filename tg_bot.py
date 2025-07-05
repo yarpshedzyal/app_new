@@ -16,29 +16,32 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-from multy_scrap import scrap_webstore_multy          
-from single_scrap import scrap_webstore_single        
+from multy_scrap import scrap_webstore_multy
+
 # ──────────────────────────────────────────────────────────────
 GET_PRICES, UPDATE = "GET_PRICES", "UPDATE"
-DAILY_CSV_PATH     = "daily_prices.csv"
-MASTER_LINKS_PATH  = "master_links.csv"
-NY_TZ            = pytz.timezone("America/New_York")
-RUN_AT             = dt.time(hour=8, minute=30, tzinfo=NY_TZ)   
-TOKEN_FILE         = "config.txt"
+DAILY_CSV_PATH = "daily_prices.csv"
+MASTER_LINKS_PATH = "master_links.csv"
+NY_TZ = pytz.timezone("America/New_York")
+RUN_AT = dt.time(hour=8, minute=30, tzinfo=NY_TZ)
+TOKEN_FILE = "config.txt"
+ALLOWED_DELAY_SECONDS = 60  # Misfire grace period
 # ──────────────────────────────────────────────────────────────
 def read_token(fname: str) -> str:
     with open(fname) as f:
         return f.readline().strip()
+
 # ──────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     kb = [[
         InlineKeyboardButton("📈 Get actual prices", callback_data=GET_PRICES),
-        InlineKeyboardButton("🔄 Update",            callback_data=UPDATE),
+        InlineKeyboardButton("🔄 Update", callback_data=UPDATE),
     ]]
     await update.message.reply_text(
         "Hello! Choose an action:",
         reply_markup=InlineKeyboardMarkup(kb),
     )
+
 # ──────────────────────────────────────────────────────────────
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     q = update.callback_query
@@ -54,6 +57,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     elif q.data == UPDATE:
         await q.message.reply_text("Great! Please send me a CSV file containing links.")
+
 # ──────────────────────────────────────────────────────────────
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     telegram_file = await update.message.document.get_file()
@@ -62,7 +66,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ── read & clean ────────────────────────────────────────────────
     df = pd.read_csv("links.csv")
-    df.columns = df.columns.str.strip().str.lower()  # e.g. "SKU" → "sku"
+    df.columns = df.columns.str.strip().str.lower()
 
     required_cols = {"sku", "links"}
     if not required_cols.issubset(df.columns):
@@ -76,10 +80,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ── scrape immediately for the user ────────────────────────────
     links_df = df.rename(columns={"links": "url"})[["url"]]
-    results  = await asyncio.to_thread(scrap_webstore_multy, links_df)
-    results  = results.rename(columns={"url": "links"})
+    results = await asyncio.to_thread(scrap_webstore_multy, links_df)
+    results = results.rename(columns={"url": "links"})
 
-    # prepend SKU so rows stay aligned with the original upload
     results.insert(0, "sku", df["sku"])
 
     results.to_csv("results.csv", index=False)
@@ -88,6 +91,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 # ──────────────────────────────────────────────────────────────
 async def daily_prices_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    now = dt.datetime.now(NY_TZ)
+    scheduled_time = now.replace(hour=8, minute=30, second=0, microsecond=0)
+    delay = (now - scheduled_time).total_seconds()
+
+    if delay > ALLOWED_DELAY_SECONDS:
+        print(f"⏰ Skipping daily job — missed by {delay:.2f} seconds.")
+        return
+
+    print(f"✅ Running daily job. Delay: {delay:.2f} seconds.")
+
     if not os.path.exists(MASTER_LINKS_PATH):
         print("⚠️ No master_links.csv yet — skipping daily run.")
         return
@@ -99,33 +112,27 @@ async def daily_prices_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         print("⚠️ master_links.csv must contain 'sku' and 'links' columns.")
         return
 
-    # Rename and extract the 'url' column for scraping
     links_df = df_links.rename(columns={"links": "url"})[["url"]]
-
-    # Perform scraping
     results = await asyncio.to_thread(scrap_webstore_multy, links_df)
 
-    # Add SKU back to the front of the results
     results.insert(0, "sku", df_links["sku"])
-
-    # Save to CSV
     results.to_csv(DAILY_CSV_PATH, index=False)
+
     print("✅ Daily prices file refreshed.")
 
 # ──────────────────────────────────────────────────────────────
 def main() -> None:
     async def post_init(app):
-        app.job_queue.run_daily(daily_prices_job, RUN_AT,name="daily price scraper",misfire_grace_time=60)
+        app.job_queue.run_daily(daily_prices_job, RUN_AT)
         print("🕗 Daily job scheduled.")
 
     application = (
         ApplicationBuilder()
         .token(read_token(TOKEN_FILE))
-        .post_init(post_init)  # ✅ Register post-init properly here
+        .post_init(post_init)
         .build()
     )
 
-    # Register handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(buttons))
     application.add_handler(MessageHandler(filters.Document.MimeType("text/csv"), handle_document))
