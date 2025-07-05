@@ -115,7 +115,7 @@ async def daily_prices_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 # ──────────────────────────────────────────────────────────────
 def main() -> None:
     async def post_init(app):
-        app.job_queue.run_daily(daily_prices_job, RUN_AT)
+        app.job_queue.run_daily(daily_prices_job, RUN_AT,name="daily price scraper",misfire_grace_time=60)
         print("🕗 Daily job scheduled.")
 
     application = (
