@@ -38,7 +38,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # ──────────────────────────────────────────────────────────────
 async def launch_daily_task(chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Run daily_task.py as a child process and notify the user when it ends."""
+    """Run daily_task.py as a child process and send daily_prices.csv to the user."""
     try:
         if not os.path.exists(DAILY_TASK_PATH):
             await context.application.bot.send_message(
@@ -47,42 +47,42 @@ async def launch_daily_task(chat_id: int, context: ContextTypes.DEFAULT_TYPE) ->
             )
             return
 
-        # Why: use the same Python interpreter/environment as the bot.
         proc = await asyncio.create_subprocess_exec(
             sys.executable, DAILY_TASK_PATH,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await proc.communicate()
+        await proc.communicate()
 
         if proc.returncode == 0:
-            await context.application.bot.send_message(chat_id=chat_id, text="✅ Daily task finished successfully.")
-            # Optional: attach logs if any output was produced.
-            if stdout:
+            if os.path.exists(DAILY_CSV_PATH):
+                await context.application.bot.send_message(
+                    chat_id=chat_id,
+                    text="✅ Daily task finished successfully! Sending daily_prices.csv..."
+                )
                 await context.application.bot.send_document(
                     chat_id=chat_id,
-                    document=io.BytesIO(stdout),
-                    filename="daily_task_stdout.txt"
+                    document=open(DAILY_CSV_PATH, "rb"),
+                    filename="daily_prices.csv"
+                )
+            else:
+                await context.application.bot.send_message(
+                    chat_id=chat_id,
+                    text="✅ Daily task finished, but daily_prices.csv was not found."
                 )
         else:
             await context.application.bot.send_message(
                 chat_id=chat_id,
                 text=f"❌ Daily task failed (exit code {proc.returncode})."
             )
-            if stderr:
-                await context.application.bot.send_document(
-                    chat_id=chat_id,
-                    document=io.BytesIO(stderr),
-                    filename="daily_task_stderr.txt"
-                )
     except Exception as exc:
         await context.application.bot.send_message(
             chat_id=chat_id,
             text=f"❌ Error while running daily task: {exc}"
         )
     finally:
-        # Why: ensure flag is cleared even if errors happen.
         context.chat_data["daily_running"] = False
+
 
 # ──────────────────────────────────────────────────────────────
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
